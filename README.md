@@ -2,6 +2,8 @@
 
 Cold storage for local AI coding-agent sessions.
 
+[npm package](https://www.npmjs.com/package/agent-session-pack)
+
 AI coding tools are useful, but their local session history grows quietly: JSONL logs, SQLite stores, browser state, copied context, and provider caches. Agent Session Pack helps you see what is there, prove what can be compressed, and move toward byte-exact restore without breaking resume.
 
 Current build status: dry-run and proof-first. It does not remove real provider session files yet.
