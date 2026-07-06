@@ -9,3 +9,4 @@ export * from './sessionIndex.js';
 export * from './sessionSelection.js';
 export * from './sessionSelector.js';
 export * from './sessionStore.js';
+export * from './setupConfig.js';
