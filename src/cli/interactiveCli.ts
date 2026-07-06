@@ -309,7 +309,7 @@ export const runFirstSetup = async (request: FirstSetupRequest = {}): Promise<Fl
     }),
   );
 
-  prompts.outro('Setup saved. Run agent-session-pack to review or pack cold sessions.');
+  prompts.outro(formatSetupSavedCopy());
   return 'saved';
 };
 
@@ -805,6 +805,23 @@ const firstScreenCopy = (): string =>
     '  5. Removes originals only after verification',
     '',
     'No daemon. No background deletion. Cursor and Devin stay backup-only for now.',
+  ].join('\n');
+
+/**
+ * Formats the setup success copy with explicit command paths.
+ *
+ * @returns Human next-step copy for local, one-off, and installed usage.
+ */
+const formatSetupSavedCopy = (): string =>
+  [
+    'Setup saved.',
+    '',
+    'Next command:',
+    '  Local repo:     pnpm dev',
+    '  One-off npm:    npx --yes agent-session-pack',
+    '  Installed CLI:  agent-session-pack',
+    '',
+    'Then choose "Check savings" or "Pack cold sessions".',
   ].join('\n');
 
 const firstSetupCopy = (): string =>

@@ -21,6 +21,7 @@ type RecordingPromptAdapter = PromptAdapter & {
     readonly message: string;
     readonly options: ReadonlyArray<PromptOption<string>>;
   }>;
+  readonly outros: string[];
   readonly selects: Array<{
     readonly message: string;
     readonly options: ReadonlyArray<PromptOption<string>>;
@@ -34,6 +35,7 @@ const createPromptAdapter = (answers: ReadonlyArray<unknown>): RecordingPromptAd
   const adapter: RecordingPromptAdapter = {
     confirms: [],
     multiselects: [],
+    outros: [],
     selects: [],
     spinnerEvents: [],
     texts: [],
@@ -50,7 +52,7 @@ const createPromptAdapter = (answers: ReadonlyArray<unknown>): RecordingPromptAd
       return queue.shift() as ReadonlyArray<string> as never;
     },
     note: () => undefined,
-    outro: () => undefined,
+    outro: (message) => adapter.outros.push(message ?? ''),
     select: async (options) => {
       adapter.selects.push(options);
       return queue.shift() as never;
@@ -181,6 +183,9 @@ describe('interactive CLI flow', () => {
       label: 'codex',
       hint: 'archive old JSONL sessions; restore byte-exact when needed',
     });
+    expect(prompts.outros[0]).toContain('Local repo:     pnpm dev');
+    expect(prompts.outros[0]).toContain('One-off npm:    npx --yes agent-session-pack');
+    expect(prompts.outros[0]).toContain('Installed CLI:  agent-session-pack');
     await expect(
       readFile(join(home, '.agent-session-pack', 'config.json'), 'utf8'),
     ).resolves.toContain('"providers": [');
