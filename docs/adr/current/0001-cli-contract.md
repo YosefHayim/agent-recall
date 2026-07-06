@@ -12,7 +12,7 @@ Agent Session Pack must work for humans in a terminal and for agents in scripts.
 
 Use `citty` for command and argument parsing, `@clack/prompts` for TTY prompts and pickers, and Effect Schema for decoded command contracts.
 
-Bare TTY invocation opens a menu. Commands with flags or non-TTY input never prompt. `--json` never prompts and never emits ANSI.
+Bare TTY invocation opens a menu. Destructive `--apply` commands prompt only in an interactive TTY and can be confirmed with `--yes` for automation. Non-TTY or `--json` apply commands never hang; they require an explicit confirmation path. `--json` never emits ANSI.
 
 ## Consequences
 

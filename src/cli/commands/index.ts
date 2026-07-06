@@ -5,3 +5,4 @@ export * from './packCommand.js';
 export * from './restoreCommand.js';
 export * from './savingsCommand.js';
 export * from './scanCommand.js';
+export * from './unpackCommand.js';

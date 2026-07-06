@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { Effect, Schema } from 'effect';
 import { ProviderIdSchema } from './sessionStore.js';
 
@@ -12,6 +12,7 @@ export const SessionManifestSchema = Schema.Struct({
   archivePath: Schema.String,
   sourceSha256: Schema.String,
   sourceBytes: Schema.Number,
+  archiveBytes: Schema.optional(Schema.Number),
   archivedAt: Schema.String,
 });
 export type SessionManifest = typeof SessionManifestSchema.Type;
@@ -69,3 +70,47 @@ export const readSessionManifest = (
         message: String(cause),
       }),
   });
+
+/**
+ * Lists all manifest JSON files below a vault manifest root.
+ *
+ * @param root - Manifest root directory.
+ * @returns Effect containing manifest file paths.
+ */
+export const listSessionManifestPaths = (
+  root: string,
+): Effect.Effect<ReadonlyArray<string>, ManifestStoreError> =>
+  Effect.tryPromise({
+    try: () => collectManifestPaths(root),
+    catch: (cause) =>
+      new ManifestStoreError({
+        path: root,
+        message: String(cause),
+      }),
+  });
+
+const collectManifestPaths = async (root: string): Promise<ReadonlyArray<string>> => {
+  const entries = await readdir(root, { withFileTypes: true }).catch(() => []);
+  const paths: string[] = [];
+
+  for (const entry of entries) {
+    const entryPath = join(root, entry.name);
+
+    if (entry.isDirectory()) {
+      paths.push(...(await collectManifestPaths(entryPath)));
+      continue;
+    }
+
+    if (!entry.isFile()) {
+      continue;
+    }
+
+    if (!entry.name.endsWith('.json')) {
+      continue;
+    }
+
+    paths.push(entryPath);
+  }
+
+  return paths;
+};

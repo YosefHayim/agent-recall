@@ -4,9 +4,9 @@ Cold storage for local AI coding-agent sessions.
 
 [npm package](https://www.npmjs.com/package/agent-session-pack)
 
-AI coding tools are useful, but their local session history grows quietly: JSONL logs, SQLite stores, browser state, copied context, and provider caches. Agent Session Pack helps you see what is there, prove what can be compressed, and move toward byte-exact restore without breaking resume.
+AI coding tools are useful, but their local session history grows quietly: JSONL logs, SQLite stores, browser state, copied context, and provider caches. Agent Session Pack helps you see what is there, prove what can be compressed, pack cold JSONL sessions into a vault, and restore them byte-exact when needed.
 
-Current build status: dry-run and proof-first. It does not remove real provider session files yet.
+Current build status: manual proof, manual pack, and manual unpack. Lifecycle hooks are not installed yet.
 
 ## Five-Minute Check
 
@@ -25,7 +25,7 @@ pnpm install
 pnpm health
 pnpm dev --check
 pnpm savings
-pnpm pack:dry-run
+pnpm pack:all
 ```
 
 After npm publish:
@@ -34,7 +34,8 @@ After npm publish:
 npx agent-session-pack doctor
 npx agent-session-pack check
 npx agent-session-pack savings
-npx agent-session-pack pack --dry-run
+npx agent-session-pack pack --all-providers
+npx agent-session-pack unpack --all-providers
 ```
 
 Or install the CLI:
@@ -44,6 +45,8 @@ npm install -g agent-session-pack
 agent-session-pack doctor
 agent-session-pack check
 agent-session-pack savings
+agent-session-pack pack --all-providers
+agent-session-pack unpack --all-providers
 ```
 
 ## What You Get
@@ -61,7 +64,9 @@ devin      8         backup-only  92.6 MB    12.8 MB    86.2%    yes     no
 total      958                    102 MB     14.6 MB    85.7%            no
 ```
 
-`pack --dry-run` scans all providers and prints the cleanup plan without changing files.
+`pack --all-providers` scans existing supported providers and prints a provider table without changing files. Add `--apply` to archive cold sessions into `~/.agent-session-pack`; in a TTY it asks you to confirm with `y` before touching originals.
+
+`unpack --all-providers` previews archived sessions in the vault. Add `--apply` to restore them back to their original provider paths. Changed live files are not overwritten.
 
 ## Architecture Flow
 
@@ -75,6 +80,29 @@ Current safe check:
 | kiro, cursor,    |      | SHA-256 compare  |      | sessions found   |
 | devin            |      |                  |      |                  |
 +------------------+      +------------------+      +------------------+
+```
+
+Manual pack/unpack flow available today:
+
+```text
++-----------------------------+      dry-run table        +-----------------------------+
+| agent-session-pack pack     | ------------------------> | provider/session summary    |
+| --all-providers             |                           | before/archive/saved        |
++--------------+--------------+                           +--------------+--------------+
+               |
+               | --apply + y
+               v
++-----------------------------+      verify before remove  +-----------------------------+
+| native JSONL sessions       | ------------------------> | ~/.agent-session-pack       |
+| codex, claude, kiro         |                           | archives + manifests        |
++--------------+--------------+                           +--------------+--------------+
+                                                                  |
+                                                                  | unpack --all-providers --apply + y
+                                                                  v
+                                                        +-----------------------------+
+                                                        | original provider paths     |
+                                                        | byte-exact restored files   |
+                                                        +-----------------------------+
 ```
 
 Target lifecycle after one-time setup:
@@ -102,7 +130,7 @@ Target lifecycle after one-time setup:
 +-----------------------------+                            +-----------------------------+
 ```
 
-The first row exists today through `check`, `savings`, and `pack --dry-run`. The lifecycle hook row is the next feature: `init` should make the developer explicitly choose providers and acknowledge that selected agents will restore on relaunch and pack again after close.
+Manual `pack --all-providers` and `unpack --all-providers` exist today. The lifecycle hook row is the next feature: `init` should make the developer explicitly choose providers and acknowledge that selected agents will restore on relaunch and pack again after close.
 
 ## Commands
 
@@ -111,7 +139,8 @@ agent-session-pack check [--provider codex|claude|kiro|cursor|devin] [--json]
 agent-session-pack doctor [--json]
 agent-session-pack scan [--provider codex|claude|kiro|cursor|devin] [--json]
 agent-session-pack savings [--provider codex|claude|kiro|cursor|devin] [--json]
-agent-session-pack pack [--provider codex|claude|kiro|cursor|devin] [--older-than 7d] [--dry-run|--apply] [--json]
+agent-session-pack pack [--all-providers|--provider codex|claude|kiro|cursor|devin] [--older-than 7d] [--dry-run|--apply] [--yes] [--json]
+agent-session-pack unpack [--all-providers|--provider codex|claude|kiro|cursor|devin] [--apply] [--yes] [--json]
 agent-session-pack list [--provider codex|claude|kiro|cursor|devin] [--json]
 agent-session-pack restore <selector> [--to original|<path>] [--json]
 agent-session-pack pin <selector>
@@ -128,7 +157,8 @@ pnpm dev --doctor
 pnpm dev --scan --provider devin
 pnpm savings --provider devin
 pnpm evidence:local --provider devin
-pnpm pack:dry-run
+pnpm pack:all
+pnpm unpack:all
 ```
 
 `pnpm doctor` is pnpm's own built-in command, so this repo uses `pnpm health`. `pnpm evidence:local` is kept as an alias for older proof notes; `pnpm savings` is the preferred human command.
@@ -139,8 +169,10 @@ Agent Session Pack is built around byte-exact restore, not best-effort compressi
 
 - Normal tests use fixtures only.
 - `savings` works on copied session files and reports `Original sessions touched: no`.
-- `pack --dry-run` does not mutate provider stores.
-- `pack --apply` is intentionally blocked until restore/list indexing is complete enough for safe recovery.
+- `pack --all-providers` defaults to dry-run and does not mutate provider stores.
+- `pack --all-providers --apply` asks for `y` in a TTY unless `--yes` is provided for automation.
+- Apply mode writes an archive, verifies byte-exact restore, writes a manifest, and only then removes the original.
+- `unpack --all-providers --apply` restores from manifests and skips changed live files instead of overwriting them.
 - Cursor and Devin are backup-only until their storage models are safer to mutate.
 
 Archive/remove/restore support targets Codex, Claude Code user-level sessions, and Kiro first. Devin discovery reads `~/.local/share/devin/cli/sessions.db` as SQLite metadata and never reads credentials.

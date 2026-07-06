@@ -86,7 +86,8 @@ export class ProviderStoreMissingError extends Schema.TaggedError<ProviderStoreM
 Providers never write. Provider modules discover and describe native sessions only.
 
 - `src/providers/*`: native store roots, discovery, title/date/id extraction.
-- `src/core/archiveWriter.ts`: create zstd archive, verify restore hash, remove original only after verification.
+- `src/core/archiveWriter.ts`: create zstd archive and verify restore hash.
+- `src/core/sessionArchive.ts`: pack/unpack workflows, manifests, and remove/restore safety.
 - `src/core/manifestStore.ts`: write/read restore metadata.
 - `src/core/sessionIndex.ts`: SQLite search/list/cache.
 - `src/output/*`: human and JSON rendering.
@@ -112,7 +113,8 @@ Commands:
 agent-session-pack check [--provider codex|claude|kiro|cursor|devin] [--json]
 agent-session-pack init [--apply] [--json]
 agent-session-pack scan [--provider codex|claude|kiro|cursor|devin] [--json]
-agent-session-pack pack [--provider codex|claude|kiro|cursor|devin] [--older-than 7d] [--dry-run|--apply] [--json]
+agent-session-pack pack [--all-providers|--provider codex|claude|kiro|cursor|devin] [--older-than 7d] [--dry-run|--apply] [--yes] [--json]
+agent-session-pack unpack [--all-providers|--provider codex|claude|kiro|cursor|devin] [--apply] [--yes] [--json]
 agent-session-pack savings [--provider codex|claude|kiro|cursor|devin] [--json]
 agent-session-pack list [--provider codex|claude|kiro|cursor|devin] [--json]
 agent-session-pack restore <selector> [--to original|<path>] [--json]
@@ -131,6 +133,8 @@ pnpm dev --doctor
 pnpm dev --scan --provider devin
 pnpm savings
 pnpm pack:dry-run
+pnpm pack:all
+pnpm unpack:all
 pnpm evidence:local
 ```
 
@@ -181,7 +185,8 @@ Avoid `memory` in code identifiers because it confuses RAM with disk.
 - `npx agent-session-pack check`: no-install copy-only local proof after publish.
 - `pnpm savings`: explicit local machine proof against copied real sessions.
 - `pnpm evidence:local`: alias kept for existing proof notes.
-- `pnpm pack:dry-run`: non-destructive all-provider cleanup summary.
+- `pnpm pack:dry-run` and `pnpm pack:all`: non-destructive all-provider cleanup summary.
+- `pnpm unpack:all`: non-destructive all-provider restore summary from the vault.
 - Round-trip tests assert SHA-256 byte-exact restore.
 - Dry-run tests assert originals are not touched.
 - Selector tests cover ID, exact name, slug, fuzzy query, provider-prefixed selector, and ambiguity.

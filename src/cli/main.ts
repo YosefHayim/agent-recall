@@ -9,6 +9,7 @@ import {
   restoreCommand,
   savingsCommand,
   scanCommand,
+  unpackCommand,
 } from './commands/index.js';
 import { normalizeCliArgv } from './mainArgs.js';
 import { isCliEntrypoint } from './mainEntrypoint.js';
@@ -24,6 +25,7 @@ export const mainCommand = defineCommand({
     init: initCommand,
     scan: scanCommand,
     pack: packCommand,
+    unpack: unpackCommand,
     list: listCommand,
     restore: restoreCommand,
     savings: savingsCommand,

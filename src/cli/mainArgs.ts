@@ -7,6 +7,7 @@ const commandFlagAliases: Readonly<Record<string, string>> = {
   '--restore': 'restore',
   '--savings': 'savings',
   '--scan': 'scan',
+  '--unpack': 'unpack',
 };
 
 /**
