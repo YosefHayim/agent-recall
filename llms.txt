@@ -4,14 +4,15 @@
 
 ## Primary Links
 
-- [README](https://github.com/YosefHayim/agent-session-pack#readme): Quick start, safety model, manual pack/unpack flow, FAQ, providers, and comparisons.
-- [npm package](https://www.npmjs.com/package/agent-session-pack): Published package and one-off `npx --yes agent-session-pack` usage.
+- [README](https://github.com/YosefHayim/agent-session-pack#readme): Quick start, command examples, safety model, provider modes, FAQ, and local evidence.
+- [npm package](https://www.npmjs.com/package/agent-session-pack): Published package and `npx --yes agent-session-pack` usage.
 - [Project purpose](https://github.com/YosefHayim/agent-session-pack/blob/main/PROJECT.md): Scope, users, non-goals, and success criteria.
 - [Agent instructions](https://github.com/YosefHayim/agent-session-pack/blob/main/AGENTS.md): Editing rules for coding agents.
 - [Code style](https://github.com/YosefHayim/agent-session-pack/blob/main/CODE-STYLE.md): TypeScript, Effect, CLI, output, and test conventions.
 - [Architecture decisions](https://github.com/YosefHayim/agent-session-pack/tree/main/docs/adr/current): Current ADRs for CLI contract, safety model, dependency choices, and CI workflows.
+- [Roundtrip examples](https://github.com/YosefHayim/agent-session-pack/tree/main/examples/roundtrip): Tiny before/archive/after fixtures that show byte-exact restore.
 
-## What It Does
+## What It Does In v0.2.0
 
 - Finds local AI coding-agent session stores.
 - Shows before/after compression evidence without touching originals.
@@ -19,12 +20,14 @@
 - Uses `--older-than` as the cold-session age filter.
 - Writes local archives and manifests under `~/.agent-session-pack` by default.
 - Verifies byte-exact restore before removing originals in apply mode.
+- Restores archived sessions with `unpack --apply`.
 
-## What It Does Not Do In v1
+## What It Does Not Do In v0.2.0
 
 - No daemon.
 - No timer.
-- No automatic compression after setup.
+- No pack-on-close hook.
+- No restore-on-launch hook.
 - No local web app.
 - No lossy summarization or context compaction.
 - No background deletion of real session files.
@@ -38,13 +41,13 @@
 ## Important Commands
 
 ```bash
-npx --yes agent-session-pack guide
 npx --yes agent-session-pack guide --json
 npx --yes agent-session-pack check
 npx --yes agent-session-pack
+npx --yes agent-session-pack pack --all-providers --older-than 7d --dry-run
 npx --yes agent-session-pack pack --max --dry-run
-npx --yes agent-session-pack pack --all-providers --older-than 7d
 npx --yes agent-session-pack pack --all-providers --older-than 7d --apply
+npx --yes agent-session-pack pack --all-providers --older-than 7d --apply --yes --json
 npx --yes agent-session-pack unpack --all-providers --apply
 ```
 
