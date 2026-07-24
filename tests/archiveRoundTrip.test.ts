@@ -1,4 +1,4 @@
-import { copyFile, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Effect, Either } from 'effect';
@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ArchiveVerificationError,
   type CompressionAdapter,
+  sha256Directory,
   writeVerifiedArchive,
 } from '../src/core/archiveWriter.js';
 
@@ -104,5 +105,62 @@ describe('archive round trip', () => {
     }
     expect(failure.left).toBeInstanceOf(ArchiveVerificationError);
     await expect(readFile(sourcePath, 'utf8')).resolves.toBe(content);
+  });
+
+  it('archives a multi-file session directory and keeps the original on dry run', async () => {
+    const workspace = await createWorkspace();
+    const sourcePath = join(workspace, 'session-dir');
+    const archivePath = join(workspace, 'session-dir.tar.zst');
+    const restoredPath = join(workspace, 'restored-session-dir');
+    await mkdir(join(sourcePath, 'terminal'), { recursive: true });
+    await writeFile(join(sourcePath, 'summary.json'), '{"title":"dir session"}\n');
+    await writeFile(join(sourcePath, 'updates.jsonl'), '{"type":"user","text":"hello"}\n');
+    await writeFile(join(sourcePath, 'terminal', 'call.log'), 'log-bytes\n');
+
+    const sourceSha256 = await Effect.runPromise(sha256Directory(sourcePath));
+    const archive = await Effect.runPromise(
+      writeVerifiedArchive({
+        sessionId: 'session-dir-1',
+        sourcePath,
+        archivePath,
+        restoredPath,
+        apply: false,
+        compression: copyCompression,
+        sourceKind: 'directory',
+      }),
+    );
+
+    const restoredSha256 = await Effect.runPromise(sha256Directory(restoredPath));
+    expect(archive.sourceKind).toBe('directory');
+    expect(archive.removedOriginal).toBe(false);
+    expect(archive.sourceSha256).toBe(sourceSha256);
+    expect(restoredSha256).toBe(sourceSha256);
+    await expect(readFile(join(sourcePath, 'updates.jsonl'), 'utf8')).resolves.toContain('hello');
+  });
+
+  it('removes a session directory only after directory archive verification passes', async () => {
+    const workspace = await createWorkspace();
+    const sourcePath = join(workspace, 'session-dir-apply');
+    const archivePath = join(workspace, 'session-dir-apply.tar.zst');
+    const restoredPath = join(workspace, 'restored-session-dir-apply');
+    await mkdir(sourcePath, { recursive: true });
+    await writeFile(join(sourcePath, 'summary.json'), '{"title":"apply dir"}\n');
+    await writeFile(join(sourcePath, 'updates.jsonl'), '{"type":"user","text":"apply"}\n');
+
+    const archive = await Effect.runPromise(
+      writeVerifiedArchive({
+        sessionId: 'session-dir-2',
+        sourcePath,
+        archivePath,
+        restoredPath,
+        apply: true,
+        compression: copyCompression,
+        sourceKind: 'directory',
+      }),
+    );
+
+    await expect(stat(sourcePath)).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(archive.removedOriginal).toBe(true);
+    expect(archive.sourceSha256).toBe(archive.restoredSha256);
   });
 });

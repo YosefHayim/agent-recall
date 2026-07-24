@@ -13,14 +13,17 @@ Cold storage for local AI coding-agent sessions.
 Agent Session Pack is a [Node.js](https://nodejs.org/en) CLI for developers and
 coding agents whose local [OpenAI Codex CLI](https://developers.openai.com/codex/cli),
 [Claude Code](https://www.anthropic.com/product/claude-code),
-[Kiro CLI](https://kiro.dev/docs/cli/), [Cursor](https://cursor.com/docs), or
+[Kiro CLI](https://kiro.dev/docs/cli/), [Grok](https://grok.x.ai/),
+[Kimi Code](https://www.kimi.com/), [OpenCode](https://opencode.ai/),
+[Gemini CLI](https://geminicli.com/), [Cursor](https://cursor.com/docs), or
 [Devin CLI](https://docs.devin.ai/cli) histories have grown large. It finds local
 session stores, proves lossless [Zstandard](https://facebook.github.io/zstd/)
 compression on copies, and packs cold sessions into a local vault only when you ask it to.
 
-Current status: `v0.2.0` ships guided setup, read-only proof, manual pack, and manual
-unpack. It does not install a daemon, timer, pack-on-close hook, restore-on-launch hook,
-web app, cloud sync, or lossy conversation summarizer.
+Current status: `v0.3.0` ships guided setup, read-only proof, manual pack, and manual
+unpack for single-file and multi-file session stores. It does not install a daemon,
+timer, pack-on-close hook, restore-on-launch hook, web app, cloud sync, or lossy
+conversation summarizer.
 
 ## Quick Start
 
@@ -168,7 +171,7 @@ Agent Session Pack is built around byte-exact restore, not best-effort cleanup.
   manifest, and only then removes the original.
 - `unpack --apply` restores from manifests and skips changed live files instead of
   overwriting them.
-- Cursor and Devin are backup-only in `v0.2.0`.
+- Cursor and Devin are backup-only in `v0.3.0`.
 
 ## Local Evidence
 
@@ -217,7 +220,7 @@ npx --yes agent-session-pack pack --all-providers --older-than 7d --apply
 
 The archive is byte-exact, but a provider can only resume from its native file location.
 Use `unpack --apply` to restore archived sessions before resuming them. Automatic
-restore-on-launch is not installed in `v0.2.0`.
+restore-on-launch is not installed in `v0.3.0`.
 </details>
 
 <details>

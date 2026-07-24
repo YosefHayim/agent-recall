@@ -1,15 +1,16 @@
-import { copyFile, mkdir, rm, stat } from 'node:fs/promises';
+import { cp, mkdir, rm, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { Effect } from 'effect';
 import { createZstdCompression } from './archiveReader.js';
 import type { ArchiveWriteError } from './archiveWriter.js';
-import { sha256File, writeVerifiedArchive } from './archiveWriter.js';
+import { sha256Path, writeVerifiedArchive } from './archiveWriter.js';
 import { selectNewestSessionWithinSize } from './sessionSelection.js';
 import type {
   ProviderAdapter,
   ProviderDiscoveryError,
   ProviderId,
   ProviderMode,
+  SessionSourceKind,
 } from './sessionStore.js';
 
 /**
@@ -33,6 +34,7 @@ export type LocalEvidenceEntry = {
   readonly fixtureSha256?: string;
   readonly restoredSha256?: string;
   readonly maxEvidenceSourceBytes?: number;
+  readonly sourceKind?: SessionSourceKind;
 };
 
 /**
@@ -80,43 +82,40 @@ export const runLocalEvidence = (
 
     for (const provider of request.providers) {
       const roots = provider.defaultRoots(request.home);
-      const root = roots[0];
-
-      if (root === undefined) {
-        continue;
-      }
-
+      const sessions = yield* discoverProviderSessions(provider, roots);
       const maxEvidenceSourceBytes =
         provider.mode === 'backup-only'
           ? maxBackupEvidenceSourceBytes
           : maxArchiveEvidenceSourceBytes;
-      const sessions = yield* provider.discover({
-        provider: provider.id,
-        path: root,
-      });
       const selected = selectNewestSessionWithinSize(sessions, maxEvidenceSourceBytes);
 
       if (selected === undefined) {
         continue;
       }
 
-      const sourceStat = yield* Effect.promise(() => stat(selected.originalPath));
-
-      if (sourceStat.size > maxEvidenceSourceBytes) {
+      if (selected.sizeBytes > maxEvidenceSourceBytes) {
         continue;
       }
 
+      const sourceKind = selected.sourceKind ?? 'file';
       const fileName = basename(selected.originalPath);
       const fixtureDir = join(request.workRoot, provider.id);
       const fixturePath = join(fixtureDir, fileName);
-      const archivePath = join(fixtureDir, `${fileName}.zst`);
+      const archivePath = join(
+        fixtureDir,
+        sourceKind === 'directory' ? `${fileName}.tar.zst` : `${fileName}.zst`,
+      );
       const restoredPath = join(fixtureDir, `restored-${fileName}`);
 
       yield* Effect.promise(() => mkdir(fixtureDir, { recursive: true }));
-      yield* Effect.promise(() => rm(fixturePath, { force: true }));
-      yield* Effect.promise(() => rm(archivePath, { force: true }));
-      yield* Effect.promise(() => rm(restoredPath, { force: true }));
-      yield* Effect.promise(() => copyFile(selected.originalPath, fixturePath));
+      yield* Effect.promise(() => rm(fixturePath, { force: true, recursive: true }));
+      yield* Effect.promise(() => rm(archivePath, { force: true, recursive: true }));
+      yield* Effect.promise(() => rm(restoredPath, { force: true, recursive: true }));
+      yield* Effect.promise(() =>
+        cp(selected.originalPath, fixturePath, {
+          recursive: sourceKind === 'directory',
+        }),
+      );
 
       const verified = yield* writeVerifiedArchive({
         sessionId: selected.id,
@@ -125,13 +124,15 @@ export const runLocalEvidence = (
         restoredPath,
         apply: false,
         compression,
+        sourceKind,
       });
-      const originalSha256 = yield* sha256File(selected.originalPath);
+      const originalSha256 = yield* sha256Path(selected.originalPath, sourceKind);
 
       evidence.push({
         provider: provider.id,
         foundSessions: sessions.length,
         mode: provider.mode,
+        sourceKind,
         titlePreview: formatTitlePreview(selected.title),
         originalPath: selected.originalPath,
         fixturePath,
@@ -157,6 +158,37 @@ export const runLocalEvidence = (
       workRoot: request.workRoot,
       evidence,
     };
+  });
+
+const discoverProviderSessions = (
+  provider: ProviderAdapter,
+  roots: ReadonlyArray<string>,
+): Effect.Effect<
+  ReadonlyArray<import('./sessionStore.js').DiscoveredSession>,
+  ProviderDiscoveryError
+> =>
+  Effect.gen(function* () {
+    const discovered = [];
+
+    for (const root of roots) {
+      const exists = yield* Effect.promise(() =>
+        stat(root)
+          .then(() => true)
+          .catch(() => false),
+      );
+
+      if (!exists) {
+        continue;
+      }
+
+      const sessions = yield* provider.discover({
+        provider: provider.id,
+        path: root,
+      });
+      discovered.push(...sessions);
+    }
+
+    return discovered;
   });
 
 const formatTitlePreview = (title: string): string => {

@@ -84,5 +84,6 @@ const sessionFromFile = (file: {
   originalPath: file.path,
   modifiedAt: file.modifiedAt,
   sizeBytes: file.sizeBytes,
+  sourceKind: 'file',
   status: 'live',
 });

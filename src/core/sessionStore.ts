@@ -7,11 +7,30 @@ import { Effect, Schema } from 'effect';
 /**
  * Schema enumerating the supported provider identifiers.
  */
-export const ProviderIdSchema = Schema.Literal('codex', 'claude', 'kiro', 'cursor', 'devin');
+export const ProviderIdSchema = Schema.Literal(
+  'codex',
+  'claude',
+  'kiro',
+  'cursor',
+  'devin',
+  'grok',
+  'kimi',
+  'opencode',
+  'gemini',
+);
 /**
  * Supported provider identifier value.
  */
 export type ProviderId = typeof ProviderIdSchema.Type;
+
+/**
+ * Schema enumerating whether a session is stored as one file or a directory tree.
+ */
+export const SessionSourceKindSchema = Schema.Literal('file', 'directory');
+/**
+ * Session source storage kind value.
+ */
+export type SessionSourceKind = typeof SessionSourceKindSchema.Type;
 
 /**
  * Schema enumerating how a provider store may be treated.
@@ -49,6 +68,7 @@ export const DiscoveredSessionSchema = Schema.Struct({
   originalPath: Schema.String,
   modifiedAt: Schema.DateFromSelf,
   sizeBytes: Schema.Number,
+  sourceKind: Schema.optional(SessionSourceKindSchema),
   createdAt: Schema.optional(Schema.DateFromSelf),
   status: Schema.optional(SessionStatusSchema),
   archivePath: Schema.optional(Schema.String),
@@ -71,6 +91,15 @@ export type SessionStore = {
  * File metadata for a discovered JSONL session file.
  */
 export type JsonlSessionFile = {
+  readonly path: string;
+  readonly sizeBytes: number;
+  readonly modifiedAt: Date;
+};
+
+/**
+ * Directory metadata for a multi-file provider session.
+ */
+export type DirectorySessionEntry = {
   readonly path: string;
   readonly sizeBytes: number;
   readonly modifiedAt: Date;
@@ -151,6 +180,31 @@ export const collectJsonlSessions = (
       new ProviderDiscoveryError({
         provider: 'codex',
         path: root,
+        message: String(cause),
+      }),
+  });
+
+/**
+ * Measures total file bytes and newest mtime for a session directory tree.
+ *
+ * @param path - Session directory path.
+ * @returns Effect containing directory size and modified time.
+ * @example
+ * ```ts
+ * import { measureDirectorySession } from './sessionStore.js';
+ *
+ * const entry = await Effect.runPromise(measureDirectorySession('/sessions/abc'));
+ * ```
+ */
+export const measureDirectorySession = (
+  path: string,
+): Effect.Effect<DirectorySessionEntry, ProviderDiscoveryError> =>
+  Effect.tryPromise({
+    try: () => measureDirectorySessionEntry(path),
+    catch: (cause) =>
+      new ProviderDiscoveryError({
+        provider: 'codex',
+        path,
         message: String(cause),
       }),
   });
@@ -295,6 +349,44 @@ const collectJsonlSessionFiles = async (
   }
 
   return files;
+};
+
+const measureDirectorySessionEntry = async (path: string): Promise<DirectorySessionEntry> => {
+  const rootStat = await stat(path);
+  let sizeBytes = 0;
+  let modifiedAt = rootStat.mtime;
+
+  const walk = async (directory: string): Promise<void> => {
+    const entries = await readdir(directory, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const entryPath = join(directory, entry.name);
+
+      if (entry.isDirectory()) {
+        await walk(entryPath);
+        continue;
+      }
+
+      if (!entry.isFile()) {
+        continue;
+      }
+
+      const fileStat = await stat(entryPath);
+      sizeBytes += fileStat.size;
+
+      if (fileStat.mtime.getTime() > modifiedAt.getTime()) {
+        modifiedAt = fileStat.mtime;
+      }
+    }
+  };
+
+  await walk(path);
+
+  return {
+    path,
+    sizeBytes,
+    modifiedAt,
+  };
 };
 
 const readSessionTitleFromFile = async (path: string): Promise<string> => {

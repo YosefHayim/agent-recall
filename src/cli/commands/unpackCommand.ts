@@ -26,7 +26,8 @@ export const unpackCommand = defineCommand({
   args: {
     provider: {
       type: 'string',
-      description: 'Provider id: codex, claude, kiro, cursor, or devin.',
+      description:
+        'Provider id: codex, claude, kiro, grok, kimi, opencode, gemini, cursor, or devin.',
     },
     'all-providers': {
       type: 'boolean',

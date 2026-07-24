@@ -73,7 +73,8 @@ export const scanCommand = defineCommand({
   args: {
     provider: {
       type: 'string',
-      description: 'Provider id: codex, claude, kiro, cursor, or devin.',
+      description:
+        'Provider id: codex, claude, kiro, grok, kimi, opencode, gemini, cursor, or devin.',
       valueHint: 'provider',
     },
     json: {

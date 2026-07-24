@@ -771,6 +771,38 @@ const providerPromptOption = (
     };
   }
 
+  if (row.provider === 'grok') {
+    return {
+      value: row.provider,
+      label: row.provider,
+      hint: 'archive old Grok multi-file session directories',
+    };
+  }
+
+  if (row.provider === 'kimi') {
+    return {
+      value: row.provider,
+      label: row.provider,
+      hint: 'archive old Kimi Code multi-file sessions',
+    };
+  }
+
+  if (row.provider === 'opencode') {
+    return {
+      value: row.provider,
+      label: row.provider,
+      hint: 'archive old OpenCode local sessions when present',
+    };
+  }
+
+  if (row.provider === 'gemini') {
+    return {
+      value: row.provider,
+      label: row.provider,
+      hint: 'archive old Gemini CLI sessions when present',
+    };
+  }
+
   return {
     value: row.provider,
     label: row.provider,
@@ -853,7 +885,7 @@ const firstScreenCopy = (): string =>
     '  4. Verifies byte-exact restore',
     '  5. Removes originals only after verification',
     '',
-    'No daemon. No background deletion. Cursor and Devin stay backup-only for now.',
+    'No daemon. No background deletion. Cursor and Devin stay backup-only for now. Grok/Kimi pack whole session directories.',
   ].join('\n');
 
 /**

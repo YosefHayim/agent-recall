@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { Effect, Schema } from 'effect';
-import { ProviderIdSchema } from './sessionStore.js';
+import { ProviderIdSchema, SessionSourceKindSchema } from './sessionStore.js';
 
 /**
  * Schema describing the restore manifest recorded for an archived session.
@@ -17,6 +17,7 @@ export const SessionManifestSchema = Schema.Struct({
   sourceBytes: Schema.Number,
   archiveBytes: Schema.optional(Schema.Number),
   archivedAt: Schema.String,
+  sourceKind: Schema.optional(SessionSourceKindSchema),
 });
 /**
  * Decoded session manifest record used to drive restores.

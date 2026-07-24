@@ -75,7 +75,7 @@ const agentGuide: AgentGuide = {
     applyPack: `${oneOffPrefix} pack --all-providers --older-than 7d --apply --yes --json`,
     applyUnpack: `${oneOffPrefix} unpack --all-providers --apply --yes --json`,
   },
-  providers: ['codex', 'claude', 'kiro', 'cursor', 'devin'],
+  providers: ['codex', 'claude', 'kiro', 'grok', 'kimi', 'opencode', 'gemini', 'cursor', 'devin'],
   notes: [
     'Prefer explicit subcommands with --json.',
     'Bare agent-session-pack is for human TTY setup.',
@@ -115,7 +115,7 @@ export const formatHumanAgentGuide = (): string =>
     `${oneOffPrefix} pack --max --dry-run --json`,
     '',
     'Provider ids',
-    'codex, claude, kiro, cursor, devin',
+    'codex, claude, kiro, grok, kimi, opencode, gemini, cursor, devin',
     '',
     'More help',
     'agent-session-pack <command> --help',

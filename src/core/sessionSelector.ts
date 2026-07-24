@@ -89,7 +89,9 @@ export const resolveSessionSelector = (
   });
 
 const parseSelector = (selector: string): ParsedSelector => {
-  const prefixMatch = selector.match(/^(codex|claude|kiro|cursor|devin):(.+)$/);
+  const prefixMatch = selector.match(
+    /^(codex|claude|kiro|cursor|devin|grok|kimi|opencode|gemini):(.+)$/,
+  );
 
   if (prefixMatch === null) {
     return {

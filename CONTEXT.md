@@ -4,7 +4,7 @@ Agent Session Pack is a local CLI that manages cold AI coding-agent session file
 
 The system has three important locations:
 
-- Provider stores: native session roots such as `~/.codex/sessions`, `~/.claude/projects`, and `~/.kiro/sessions`.
+- Provider stores: native session roots such as `~/.codex/sessions`, `~/.claude/projects`, `~/.kiro/sessions`, `~/.grok/sessions`, and `~/.kimi-code/sessions`.
 - Vault: Agent Session Pack's own storage under `~/.agent-session-pack`.
 - Working fixtures: test-only temp directories and committed examples.
 

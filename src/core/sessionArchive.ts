@@ -7,7 +7,9 @@ import {
   type ArchiveWriteError,
   type CompressionAdapter,
   removeOriginalSession,
+  restoreDirectoryArchive,
   sha256File,
+  sha256Path,
   writeVerifiedArchive,
 } from './archiveWriter.js';
 import {
@@ -24,6 +26,7 @@ import type {
   ProviderDiscoveryError,
   ProviderId,
   ProviderMode,
+  SessionSourceKind,
 } from './sessionStore.js';
 
 /**
@@ -359,8 +362,9 @@ const archiveCandidateSessions = (request: {
     let packedSessions = 0;
 
     for (const session of request.candidates) {
-      const archivePath = archivePathForSession(request.vaultPath, session);
-      const restoredPath = verificationPathForSession(request.vaultPath, session);
+      const sourceKind = sessionSourceKind(session);
+      const archivePath = archivePathForSession(request.vaultPath, session, sourceKind);
+      const restoredPath = verificationPathForSession(request.vaultPath, session, sourceKind);
       const manifestPath = manifestPathForSession(request.vaultPath, session);
       const archived = yield* writeVerifiedArchive({
         sessionId: session.id,
@@ -369,6 +373,7 @@ const archiveCandidateSessions = (request: {
         restoredPath,
         apply: false,
         compression: request.compression,
+        sourceKind,
       });
 
       yield* writeSessionManifest(manifestPath, {
@@ -382,6 +387,7 @@ const archiveCandidateSessions = (request: {
         sourceBytes: archived.sourceBytes,
         archiveBytes: archived.archiveBytes,
         archivedAt: request.now.toISOString(),
+        sourceKind,
       });
       yield* removeOriginalSession(session.originalPath);
       yield* removePath(restoredPath);
@@ -452,10 +458,11 @@ const restoreManifest = (request: {
   readonly vaultPath: string;
 }): Effect.Effect<RestoreOutcome, ArchiveFileSystemError | ArchiveVerificationError> =>
   Effect.gen(function* () {
+    const sourceKind = manifestSourceKind(request.manifest);
     const originalExists = yield* pathExists(request.manifest.originalPath);
 
     if (originalExists) {
-      const existingSha256 = yield* sha256File(request.manifest.originalPath);
+      const existingSha256 = yield* sha256Path(request.manifest.originalPath, sourceKind);
 
       if (existingSha256 === request.manifest.sourceSha256) {
         return 'already-present';
@@ -464,7 +471,20 @@ const restoreManifest = (request: {
       return 'conflict';
     }
 
-    const restoredPath = restorePathForManifest(request.vaultPath, request.manifest);
+    const restoredPath = restorePathForManifest(request.vaultPath, request.manifest, sourceKind);
+
+    if (sourceKind === 'directory') {
+      yield* restoreDirectoryArchive({
+        sessionId: request.manifest.sessionId,
+        archivePath: request.manifest.archivePath,
+        restoredPath,
+        originalPath: request.manifest.originalPath,
+        expectedSha256: request.manifest.sourceSha256,
+        compression: request.compression,
+      });
+      return 'restored';
+    }
+
     yield* ensureParentDirectory(restoredPath);
     yield* request.compression.decompress({
       archivePath: request.manifest.archivePath,
@@ -695,17 +715,57 @@ const savedPercent = (sourceBytes: number, archiveBytes: number): number => {
   return Number((100 - (archiveBytes / sourceBytes) * 100).toFixed(1));
 };
 
-const archivePathForSession = (vaultPath: string, session: DiscoveredSession): string =>
-  join(vaultPath, 'archives', session.provider, `${safePathSegment(session.id)}.jsonl.zst`);
+const sessionSourceKind = (session: DiscoveredSession): SessionSourceKind =>
+  session.sourceKind ?? 'file';
+
+const manifestSourceKind = (manifest: SessionManifest): SessionSourceKind =>
+  manifest.sourceKind ?? 'file';
+
+const archivePathForSession = (
+  vaultPath: string,
+  session: DiscoveredSession,
+  sourceKind: SessionSourceKind,
+): string => {
+  const extension = sourceKind === 'directory' ? 'tar.zst' : 'jsonl.zst';
+  return join(
+    vaultPath,
+    'archives',
+    session.provider,
+    `${safePathSegment(session.id)}.${extension}`,
+  );
+};
 
 const manifestPathForSession = (vaultPath: string, session: DiscoveredSession): string =>
   join(vaultPath, 'manifests', session.provider, `${safePathSegment(session.id)}.json`);
 
-const verificationPathForSession = (vaultPath: string, session: DiscoveredSession): string =>
-  join(vaultPath, 'verify', session.provider, `${safePathSegment(session.id)}.jsonl`);
+const verificationPathForSession = (
+  vaultPath: string,
+  session: DiscoveredSession,
+  sourceKind: SessionSourceKind,
+): string => {
+  if (sourceKind === 'directory') {
+    return join(vaultPath, 'verify', session.provider, safePathSegment(session.id));
+  }
 
-const restorePathForManifest = (vaultPath: string, manifest: SessionManifest): string =>
-  join(vaultPath, 'restore', manifest.provider, `${safePathSegment(manifest.sessionId)}.jsonl`);
+  return join(vaultPath, 'verify', session.provider, `${safePathSegment(session.id)}.jsonl`);
+};
+
+const restorePathForManifest = (
+  vaultPath: string,
+  manifest: SessionManifest,
+  sourceKind: SessionSourceKind,
+): string => {
+  if (sourceKind === 'directory') {
+    return join(vaultPath, 'restore', manifest.provider, safePathSegment(manifest.sessionId));
+  }
+
+  return join(
+    vaultPath,
+    'restore',
+    manifest.provider,
+    `${safePathSegment(manifest.sessionId)}.jsonl`,
+  );
+};
 
 const safePathSegment = (value: string): string => {
   const segment = value
@@ -766,7 +826,7 @@ const copyPath = (
 
 const removePath = (path: string): Effect.Effect<void, ArchiveFileSystemError> =>
   Effect.tryPromise({
-    try: () => rm(path, { force: true }).then(() => undefined),
+    try: () => rm(path, { force: true, recursive: true }).then(() => undefined),
     catch: (cause) =>
       new ArchiveFileSystemError({
         path,
